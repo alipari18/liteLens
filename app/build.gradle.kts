@@ -80,9 +80,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
 
     // TensorFlow Lite
-    implementation(libs.tensorflow.lite.task.vision)
-    implementation(libs.tensorflow.lite.gpu.delegate.plugin)
-    implementation(libs.tensorflow.lite.gpu)
+    implementation("com.google.mlkit:object-detection:17.0.2")
 
     // Accompanist Permission manager Dependency
     implementation(libs.accompanist.permissions)
@@ -95,6 +93,19 @@ dependencies {
     // ML Kit text translation
     implementation(libs.translate)
 
+    // Compose Preview
+    implementation(libs.ui.tooling.preview)
+
+    // azure visual search
+    implementation(libs.azure.cognitiveservices.visualsearch)
+
+    // okhttp
+    implementation(libs.okhttp)
+
+    // guava
+    implementation("com.google.guava:guava:31.1-android")
+    implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -103,4 +114,12 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    debugImplementation(libs.androidx.ui.tooling)
+}
+
+configurations.all {
+    resolutionStrategy {
+        force("com.google.guava:guava:31.1-android")
+
+    }
 }

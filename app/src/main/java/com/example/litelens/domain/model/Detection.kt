@@ -1,6 +1,6 @@
 package com.example.litelens.domain.model
 
-import android.graphics.RectF
+import android.graphics.Rect
 
 enum class DetectionType {
     OBJECT_DETECTION,
@@ -8,10 +8,10 @@ enum class DetectionType {
 }
 
 data class Detection (
-    val boundingBox: RectF,
-    val detectedObjectName: String,
+    val boundingBox: Rect,
+    var detectedObjectName: String,
     val confidenceScore: Float,
-    val tensorImageHeight: Int,
-    val tensorImageWidth: Int,
+    val imageHeight: Int,
+    val imageWidth: Int,
     val type: DetectionType
 )

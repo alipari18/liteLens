@@ -18,9 +18,12 @@ class LanguageIdentificationManagerImpl @Inject constructor() : LanguageIdentifi
         languageIdentifier.identifyLanguage(text)
             .addOnSuccessListener { languageCode ->
                 if (languageCode != "und") {
+                    Log.i("LanguageIdentificationManagerImpl", "Identified language: $languageCode")
                     onSuccess(languageCode)
                 } else {
-                    onFailure(Exception("Language could not be identified"))
+                    // return default
+                    onSuccess("en")
+                    //onFailure(Exception("Language could not be identified"))
                 }
             }
             .addOnFailureListener { exception ->

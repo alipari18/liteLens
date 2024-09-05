@@ -2,11 +2,13 @@ package com.example.litelens.module
 
 import android.app.Application
 import android.content.Context
+import com.example.litelens.data.manager.bingVisualSearch.BingVisualSearchRepositoryImpl
 import com.example.litelens.data.manager.datastore.LocalUserConfigManagerImpl
 import com.example.litelens.data.manager.languageIdentification.LanguageIdentificationManagerImpl
 import com.example.litelens.data.manager.objectDetection.ObjectDetectionManagerImpl
 import com.example.litelens.data.manager.textRecognition.TextRecognitionManagerImpl
 import com.example.litelens.data.manager.textTranslation.TextTranslationManagerImpl
+import com.example.litelens.domain.repository.bingVisualSearch.BingVisualSearchRepository
 import com.example.litelens.domain.usecases.datastore.ReadUserConfig
 import com.example.litelens.domain.usecases.datastore.UserConfigData
 import com.example.litelens.domain.usecases.datastore.WriteUserConfig
@@ -22,6 +24,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.internal.modules.ApplicationContextModule
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
 import javax.inject.Singleton
 
 @Module(includes = [ApplicationContextModule::class])
@@ -74,4 +77,18 @@ class AppModule {
     ): DetectObjectManager = DetectObjectManager(
         objectDetectionManager = objectDetectionManager
     )
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(): OkHttpClient {
+        return OkHttpClient.Builder().build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideBingVisualSearchRepository(
+        client: OkHttpClient
+    ): BingVisualSearchRepository {
+        return BingVisualSearchRepositoryImpl(client)
+    }
 }

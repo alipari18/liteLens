@@ -17,25 +17,37 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.view.translation.TranslationManager
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.MediatorLiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.litelens.domain.model.Detection
+import com.example.litelens.domain.model.VisualSearchResult
 import com.example.litelens.domain.repository.languageIdentification.LanguageIdentificationManager
 import com.example.litelens.domain.repository.objectDetection.ObjectDetectionManager
 import com.example.litelens.domain.repository.textRecognition.TextRecognitionManager
 import com.example.litelens.domain.repository.textTranslation.TextTranslationManager
+import com.example.litelens.domain.usecases.bingVisualSearch.PerformVisualSearchUseCase
 import com.example.litelens.utils.CameraFrameAnalyzer
+import com.example.litelens.utils.Constants.SMOOTHING_DURATION
+import com.example.litelens.utils.Language
+import com.example.litelens.utils.SmoothedMutableLiveData
+import com.example.litelens.utils.TextRecognitionAnalyzer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -46,15 +58,19 @@ import kotlin.random.Random
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    val objectDetectionManager: ObjectDetectionManager,
-    val textRecognitionManager: TextRecognitionManager,
-    val languageIdentificationManager: LanguageIdentificationManager,
-    val textTranslationManager: TextTranslationManager
+    private val objectDetectionManager: ObjectDetectionManager,
+    private val textRecognitionManager: TextRecognitionManager,
+    private val languageIdentificationManager: LanguageIdentificationManager,
+    private val textTranslationManager: TextTranslationManager,
+    private val performVisualSearchUseCase: PerformVisualSearchUseCase
 ): ViewModel() {
 
+
     companion object {
-        private val TAG: String? = HomeViewModel::class.simpleName
+        private val TAG: String = "APP_LENS"
     }
+
+    private var currentCameraController: LifecycleCameraController? = null
 
     private val _isImageSavedStateFlow = MutableStateFlow(true)
     val isImageSavedStateFlow = _isImageSavedStateFlow.asStateFlow()
@@ -64,37 +80,126 @@ class HomeViewModel @Inject constructor(
     private val _detectionResults = MutableStateFlow<List<Detection>>(emptyList())
     val detectionResults = _detectionResults.asStateFlow()
 
-    private val _translationResults = MutableStateFlow("")
-    val translationResults = _translationResults.asStateFlow()
+    private val _isImageDetectionChecked = MutableStateFlow(true)
+    val isImageDetectionChecked = _isImageDetectionChecked.asStateFlow()
 
-    fun updateDetectionResults(detections: List<Detection>) {
-        _detectionResults.value = detections
+    private val _visualSearchResults = MutableStateFlow<List<VisualSearchResult>>(emptyList())
+    val visualSearchResults: StateFlow<List<VisualSearchResult>> = _visualSearchResults
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching
+
+    fun toggleImageDetection() {
+        _isImageDetectionChecked.value = !_isImageDetectionChecked.value
     }
 
-    fun updateTranslationResults(text: String) {
-        _translationResults.value = text
-    }
-
-    /**
-     * Initializes and returns a `LifecycleCameraController` instance with the specified use cases.
-     * This function sets up the camera controller for image analysis and image capture.
-     *
-     * @param context context used for managing the lifecycle of the camera controller.
-     * @return Returns a fully initialized `LifecycleCameraController` instance.
-     */
     fun prepareCameraController(
         context: Context,
-        cameraFrameAnalyzer: CameraFrameAnalyzer
-    ): LifecycleCameraController{
-        Log.d(TAG, "prepareCameraController: Preparing Camera Controller")
-        return LifecycleCameraController(context).apply {
+        analyzer: ImageAnalysis.Analyzer
+    ): LifecycleCameraController {
+        unbindCameraController(context)
+
+        val cameraController = LifecycleCameraController(context).apply {
             setEnabledUseCases(
                 CameraController.IMAGE_ANALYSIS or CameraController.IMAGE_CAPTURE
             )
             setImageAnalysisAnalyzer(
                 ContextCompat.getMainExecutor(context),
-                cameraFrameAnalyzer
+                analyzer
             )
+        }
+
+        currentCameraController = cameraController
+        return cameraController
+    }
+
+    // Unbinds the current camera controller and releases resources
+    private fun unbindCameraController(context: Context) {
+        currentCameraController?.let {
+            val cameraProvider = ProcessCameraProvider.getInstance(context).get()
+            cameraProvider.unbindAll()
+            currentCameraController = null
+        }
+    }
+
+    fun initializeCameraController(
+        context: Context,
+        isImageDetectionChecked: Boolean,
+        onTextRecognized: (String) -> Unit,
+        onObjectDetectionResult: (List<Detection>) -> Unit,
+        screenWidth: Int,
+        screenHeight: Int
+    ): LifecycleCameraController {
+        return if (isImageDetectionChecked) {
+            val cameraFrameAnalyzer = CameraFrameAnalyzer(
+                objectDetectionManager = objectDetectionManager,
+                onObjectDetectionResults = onObjectDetectionResult,
+                onInitiateVisualSearch = ::performVisualSearch,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight
+            )
+            prepareCameraController(context, cameraFrameAnalyzer)
+        } else {
+            val textTranslationAnalyzer = TextRecognitionAnalyzer(
+                onTextRecognized = onTextRecognized,
+                textRecognitionManager = textRecognitionManager,
+                textTranslationManager = textTranslationManager,
+                languageIdentificationManager = languageIdentificationManager,
+                context = context,
+                screenHeight = screenHeight,
+                screenWidth = screenWidth
+            )
+            prepareCameraController(context, textTranslationAnalyzer)
+        }
+    }
+
+    fun updateCameraAnalyzer(
+        context: Context,
+        isImageDetectionChecked: Boolean,
+        onTextRecognized: (String) -> Unit,
+        onObjectDetectionResult: (List<Detection>) -> Unit,
+        screenWidth: Int,
+        screenHeight: Int
+    ) {
+        currentCameraController?.let { controller ->
+            val analyzer = if (isImageDetectionChecked) {
+                CameraFrameAnalyzer(
+                    objectDetectionManager = objectDetectionManager,
+                    onObjectDetectionResults = onObjectDetectionResult,
+                    onInitiateVisualSearch = ::performVisualSearch,
+                    screenWidth = screenWidth,
+                    screenHeight = screenHeight
+                )
+            } else {
+                TextRecognitionAnalyzer(
+                    onTextRecognized = onTextRecognized,
+                    textRecognitionManager = textRecognitionManager,
+                    textTranslationManager = textTranslationManager,
+                    languageIdentificationManager = languageIdentificationManager,
+                    context = context,
+                    screenHeight = screenHeight,
+                    screenWidth = screenWidth
+                )
+            }
+            controller.setImageAnalysisAnalyzer(
+                ContextCompat.getMainExecutor(context),
+                analyzer
+            )
+        }
+    }
+
+
+    fun performVisualSearch(image: Bitmap){
+        viewModelScope.launch {
+            _isSearching.value = true
+            val result = performVisualSearchUseCase(image)
+            result.onSuccess { results ->
+                Log.d("APP_LENS", "performVisualSearch: Visual Search Results = $results")
+                _visualSearchResults.value = results
+            }.onFailure {
+                Log.e("APP_LENS", "performVisualSearch: Error performing visual search", it)
+            }
+            _isSearching.value = false
         }
     }
 
