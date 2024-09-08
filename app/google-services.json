@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "916996860798",
+    "project_id": "litelens-5ef79",
+    "storage_bucket": "litelens-5ef79.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:916996860798:android:774d6812de3ea67723a12f",
+        "android_client_info": {
+          "package_name": "com.example.litelens"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwsLhdhwngbdQcR0Z7jpi_dQeO1ugB1qg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

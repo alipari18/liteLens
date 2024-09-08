@@ -41,6 +41,7 @@ class ObjectDetectionManagerImpl @Inject constructor(
     @OptIn(ExperimentalGetImage::class)
     override fun detectObjectsInCurrentFrame(
         bitmap: Bitmap,
+        originalBitmap: Bitmap,
         rotation: Int,
         confidenceThreshold: Float,
         onSuccess: (List<Detection>) -> Unit,
@@ -55,7 +56,7 @@ class ObjectDetectionManagerImpl @Inject constructor(
             objectDetector.process(image)
                 .addOnSuccessListener { objects ->
                     Log.d("ObjectDetectionManagerImpl", "Detected objects: ${objects.size}")
-                    onSuccess(mapDetections(objects, bitmap.height, bitmap.width, confidenceThreshold))
+                    onSuccess(mapDetections(objects, bitmap.height, bitmap.width, originalBitmap))
                 }
                 .addOnFailureListener {
                     Log.e("ObjectDetectionManagerImpl", "Error detecting objects: ${it.localizedMessage}")
@@ -72,7 +73,7 @@ class ObjectDetectionManagerImpl @Inject constructor(
         detectedObjects: List<DetectedObject>,
         imageHeight: Int,
         imageWidth: Int,
-        confidenceThreshold: Float
+        bitmap: Bitmap
     ): List<Detection> {
         return detectedObjects.map { detectedObject ->
             val label = detectedObject.labels.firstOrNull()
@@ -83,7 +84,8 @@ class ObjectDetectionManagerImpl @Inject constructor(
                 confidenceScore = confidence,
                 imageHeight = imageHeight,
                 imageWidth = imageWidth,
-                type = DetectionType.OBJECT_DETECTION
+                type = DetectionType.OBJECT_DETECTION,
+                bitmap = bitmap
             )
         }//.filter { it.confidenceScore >= confidenceThreshold }
     }

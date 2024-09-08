@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     kotlin("kapt")
     id("com.google.dagger.hilt.android")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -105,6 +106,15 @@ dependencies {
     // guava
     implementation("com.google.guava:guava:31.1-android")
     implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
+
+    // Coil
+    implementation("io.coil-kt:coil-compose:2.4.0")
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.2.0"))
+    // Firestore and Storage
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

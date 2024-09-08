@@ -17,6 +17,8 @@ class CameraFrameAnalyzer @Inject constructor(
     private val objectDetectionManager: ObjectDetectionManager,
     private val onObjectDetectionResults: (List<Detection>) -> Unit,
     private val onInitiateVisualSearch: (Bitmap) -> Unit,
+    private val isSearching: () -> Boolean,
+    private val isBottomSheetVisible: () -> Boolean,
     private val confidenceScoreState: Float = Constants.INITIAL_CONFIDENCE_SCORE,
     private val screenWidth: Int,
     private val screenHeight: Int
@@ -25,14 +27,14 @@ class CameraFrameAnalyzer @Inject constructor(
     private var frameSkipCounter = 0
     private val boxWidthPercentage = 0.8f
     private val boxHeightPercentage = 0.5f
-    private var isProcessing = false
 
     override fun analyze(imageProxy: ImageProxy) {
 
-        if (isProcessing) {
+        if (isSearching() || isBottomSheetVisible()) {
             imageProxy.close()
             return
         }
+
 
         frameSkipCounter++
         if (frameSkipCounter % 45 == 0) {
@@ -41,33 +43,29 @@ class CameraFrameAnalyzer @Inject constructor(
             val rotatedBitmap = bitmapImage.rotateIfRequired(rotationDegrees)
             val croppedBitmap = cropBitmapToOverlay(rotatedBitmap, screenWidth, screenHeight)
             val preprocessedBitmap = preprocessImage(croppedBitmap, imageProxy.imageInfo.rotationDegrees)
-            processImage(preprocessedBitmap, imageProxy)
+            processImage(preprocessedBitmap, croppedBitmap, imageProxy)
         }
         imageProxy.close()
     }
 
-    private fun processImage(bitmapImage: Bitmap, proxy: ImageProxy) {
+    private fun processImage(bitmapImage: Bitmap, croppedBitmap: Bitmap, proxy: ImageProxy) {
         Log.d("APP_LENS", "Processing image")
         objectDetectionManager.detectObjectsInCurrentFrame(
             bitmap = bitmapImage,
+            originalBitmap = croppedBitmap,
             rotation = proxy.imageInfo.rotationDegrees,
             confidenceThreshold = confidenceScoreState,
             onSuccess = { detectedObjects: List<Detection> ->
                 Log.d("APP_LENS", "Detected objects: ${detectedObjects.size}")
                 onObjectDetectionResults(detectedObjects)
                 if ( detectedObjects.isNotEmpty() ){
-                    isProcessing = true
-                    onInitiateVisualSearch(bitmapImage)
+                    onInitiateVisualSearch(croppedBitmap)
                 }
             },
             onError = { error ->
                 Log.e("APP_LENS", error)
             }
         )
-    }
-
-    fun resumeProcessing() {
-        isProcessing = false
     }
 
     private fun preprocessImage(bitmap: Bitmap, rotation: Int): Bitmap {

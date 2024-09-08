@@ -1,9 +1,13 @@
 package com.example.litelens.presentation.mainActivity
 
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.litelens.domain.usecases.datastore.UserConfigData
+import com.example.litelens.presentation.navgraph.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -22,10 +26,10 @@ class MainViewModel @Inject constructor(
     }
 
     // State to obtain the userConfig status stored in Datastore via delegates
-    var redirectFlagState: Boolean = true
+    private var redirectFlagState: Boolean = true
 
     // Initializing Start-Destination via delegates to obtain value only once
-    var startDestination: String = "AppStartNavigation"
+    var startDestination by mutableStateOf(Route.HomeNavigation.route)
 
     /**
      * Retrieve the boolean Flag from Datastore to decide on Navigation of application

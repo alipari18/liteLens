@@ -9,6 +9,7 @@ import com.google.mlkit.vision.objects.DetectedObject
 interface ObjectDetectionManager {
     fun detectObjectsInCurrentFrame(
         bitmap: Bitmap,
+        originalBitmap: Bitmap,
         rotation: Int,
         confidenceThreshold: Float,
         onSuccess: (List<Detection>) -> Unit,

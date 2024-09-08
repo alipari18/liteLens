@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import com.example.litelens.presentation.home.HomeScreen
+import com.example.litelens.presentation.navgraph.NavGraph
 import com.example.litelens.theme.LiteLensTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -36,8 +37,7 @@ class MainActivity : ComponentActivity() {
 
                         val startDestination = viewModel.startDestination
                         Log.d(TAG, "setContent() called with startDestination = $startDestination ")
-                        HomeScreen()
-                        // Implement your NavGraph here
+                        NavGraph(startDestination = startDestination)
                     }
             }
         }

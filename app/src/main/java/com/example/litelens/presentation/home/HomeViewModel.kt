@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
@@ -15,7 +14,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.util.Log
-import android.view.translation.TranslationManager
+import android.widget.Toast
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -24,12 +23,7 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.MediatorLiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.litelens.domain.model.Detection
@@ -40,9 +34,7 @@ import com.example.litelens.domain.repository.textRecognition.TextRecognitionMan
 import com.example.litelens.domain.repository.textTranslation.TextTranslationManager
 import com.example.litelens.domain.usecases.bingVisualSearch.PerformVisualSearchUseCase
 import com.example.litelens.utils.CameraFrameAnalyzer
-import com.example.litelens.utils.Constants.SMOOTHING_DURATION
-import com.example.litelens.utils.Language
-import com.example.litelens.utils.SmoothedMutableLiveData
+import com.example.litelens.utils.FirebaseStorageManager
 import com.example.litelens.utils.TextRecognitionAnalyzer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -62,7 +54,8 @@ class HomeViewModel @Inject constructor(
     private val textRecognitionManager: TextRecognitionManager,
     private val languageIdentificationManager: LanguageIdentificationManager,
     private val textTranslationManager: TextTranslationManager,
-    private val performVisualSearchUseCase: PerformVisualSearchUseCase
+    private val performVisualSearchUseCase: PerformVisualSearchUseCase,
+    private val firebaseStorageManager: FirebaseStorageManager
 ): ViewModel() {
 
 
@@ -89,11 +82,22 @@ class HomeViewModel @Inject constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching
 
+    private fun isSearchingNow(): Boolean = _isSearching.value
+    private fun isBottomSheetVisible(): Boolean = _showBottomSheet.value
+
+    private val _showBottomSheet = MutableStateFlow(false)
+    val showBottomSheet: StateFlow<Boolean> = _showBottomSheet
+
     fun toggleImageDetection() {
         _isImageDetectionChecked.value = !_isImageDetectionChecked.value
     }
 
-    fun prepareCameraController(
+    fun toggleBottomSheet(control: Boolean) {
+        _showBottomSheet.value = control
+
+    }
+
+    private fun prepareCameraController(
         context: Context,
         analyzer: ImageAnalysis.Analyzer
     ): LifecycleCameraController {
@@ -135,6 +139,8 @@ class HomeViewModel @Inject constructor(
                 objectDetectionManager = objectDetectionManager,
                 onObjectDetectionResults = onObjectDetectionResult,
                 onInitiateVisualSearch = ::performVisualSearch,
+                isSearching = ::isSearchingNow,
+                isBottomSheetVisible = ::isBottomSheetVisible,
                 screenWidth = screenWidth,
                 screenHeight = screenHeight
             )
@@ -167,6 +173,8 @@ class HomeViewModel @Inject constructor(
                     objectDetectionManager = objectDetectionManager,
                     onObjectDetectionResults = onObjectDetectionResult,
                     onInitiateVisualSearch = ::performVisualSearch,
+                    isSearching = ::isSearchingNow,
+                    isBottomSheetVisible = ::isBottomSheetVisible,
                     screenWidth = screenWidth,
                     screenHeight = screenHeight
                 )
@@ -189,7 +197,7 @@ class HomeViewModel @Inject constructor(
     }
 
 
-    fun performVisualSearch(image: Bitmap){
+    private fun performVisualSearch(image: Bitmap){
         viewModelScope.launch {
             _isSearching.value = true
             val result = performVisualSearchUseCase(image)
@@ -227,58 +235,45 @@ class HomeViewModel @Inject constructor(
         cameraController: LifecycleCameraController,
         screenWidth: Float,
         screenHeight: Float,
-        detections: List<Detection>
+        detections: List<Detection>,
+        savedSearchResult: () -> VisualSearchResult
     ){
-        cameraController.takePicture(
-            ContextCompat.getMainExecutor(context),
-            object: ImageCapture.OnImageCapturedCallback() {
 
-                override fun onCaptureSuccess(image: ImageProxy) {
-                    super.onCaptureSuccess(image)
-                    Log.d(TAG, "onCaptureSuccess: Image Captured")
+        Log.d(TAG, "capturePhoto() called with ${savedSearchResult()}")
 
-                    val rotatedImageMatrix: Matrix =
-                        Matrix().apply {
-                            postRotate(image.imageInfo.rotationDegrees.toFloat())
+
+        // Save the Image-Bitmap to Device
+        detections.first().bitmap?.let {
+            val result: Boolean = saveBitmapToDevice(
+                context = context,
+                capturedImageBitmap = it
+            )
+
+            if(result){
+                viewModelScope.launch {
+                    val visualSearchResult = savedSearchResult()
+                    firebaseStorageManager.saveImageAndResult(it, visualSearchResult)
+                        .onSuccess { documentId ->
+                            Log.d(TAG, "Image and search result saved to Firebase with ID: $documentId")
+                            Toast.makeText(context, "Search saved successfully and can be view from the history", Toast.LENGTH_SHORT).show()
                         }
-
-                    val rotatedBitmap: Bitmap = Bitmap.createBitmap(
-                        image.toBitmap(),
-                        0,
-                        0,
-                        image.width,
-                        image.height,
-                        rotatedImageMatrix,
-                        true
-                    )
-
-                    val combinedBitmap = overlayDetectionsOnBitmap(
-                    rotatedBitmap,
-                    detections,
-                    screenWidth,
-                    screenHeight
-                    )
-
-                    // Save the Image-Bitmap to Device
-                    saveBitmapToDevice(
-                        context = context,
-                        capturedImageBitmap = combinedBitmap
-                    )
-                }
-
-                override fun onError(exception: ImageCaptureException) {
-                    super.onError(exception)
-                    Log.e(TAG, "onError() called for capturePhoto with: exception = $exception")
-                    isPhotoSuccessfullySaved(false)
+                        .onFailure { exception ->
+                            Log.e(TAG, "Failed to save image and search result to Firebase", exception)
+                            Toast.makeText(context, "Failed to save search result", Toast.LENGTH_SHORT).show()
+                        }
                 }
             }
-        )
+
+
+        }
+
+
     }
 
     private fun saveBitmapToDevice(
         context: Context,
         capturedImageBitmap: Bitmap
-    ){
+    ): Boolean{
         viewModelScope.launch(Dispatchers.IO) {
             try{
                 Log.d(TAG, "saveBitmapToDevice: Saving image to device with version = ${Build.VERSION.SDK_INT}")
@@ -305,13 +300,18 @@ class HomeViewModel @Inject constructor(
                         }
                     }
 
+                    Toast.makeText(context, "Search saved successfully and can be view from the history", Toast.LENGTH_SHORT).show()
+
                     isPhotoSuccessfullySaved(true)
+
                 }
             }catch (e: Exception){
                 Log.e(TAG, "saveBitmapToDevice: Error saving image to device", e)
                 isPhotoSuccessfullySaved(false)
             }
+
         }
+        return _isImageSavedStateFlow.value
     }
 
     /**

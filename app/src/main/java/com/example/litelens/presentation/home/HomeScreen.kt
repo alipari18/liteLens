@@ -1,45 +1,53 @@
 package com.example.litelens.presentation.home
 
-import android.graphics.Rect
 import android.util.Log
 import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.litelens.R
 import com.example.litelens.domain.model.Detection
+import com.example.litelens.domain.model.VisualSearchResult
 import com.example.litelens.presentation.common.SwitchIconsButton
-import com.example.litelens.presentation.home.components.CameraOverlay
 import com.example.litelens.presentation.home.components.CameraPreview
 import com.example.litelens.presentation.home.components.CameraTextRecognitionOverlay
+import com.example.litelens.presentation.home.components.ExpandableResultCard
 import com.example.litelens.presentation.home.components.RequestPermission
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onNavigateToSavedSearches: () -> Unit
+) {
     val context = LocalContext.current
     val viewModel: HomeViewModel = hiltViewModel()
 
@@ -63,6 +71,8 @@ fun HomeScreen() {
 
     val visualSearchResults by viewModel.visualSearchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
+
+    val showBottomSheet by viewModel.showBottomSheet.collectAsState()
 
     LaunchedEffect(Unit) {
         cameraController = viewModel.initializeCameraController(
@@ -96,8 +106,11 @@ fun HomeScreen() {
             translatedText = translatedText,
             detectionResults = detectionResults,
             onSwitchModeClicked = viewModel::toggleImageDetection,
-            previewSize = previewSize,
-            onPreviewSizeChanged = { newSize -> previewSize = newSize }
+            visualSearchResults = visualSearchResults,
+            isSearching = isSearching,
+            viewModel = viewModel,
+            onPreviewSizeChanged = { newSize -> previewSize = newSize },
+            onNavigateToSavedSearches = onNavigateToSavedSearches
         )
 
         if (isSearching) {
@@ -118,10 +131,20 @@ private fun CameraContent(
     translatedText: String?,
     detectionResults: List<Detection>,
     onSwitchModeClicked: () -> Unit,
-    previewSize: IntSize,
-    onPreviewSizeChanged: (IntSize) -> Unit
+    visualSearchResults: List<VisualSearchResult>,
+    isSearching: Boolean,
+    viewModel: HomeViewModel,
+    onPreviewSizeChanged: (IntSize) -> Unit,
+    onNavigateToSavedSearches: () -> Unit
 ) {
     val backgroundColor = MaterialTheme.colorScheme.background
+
+    val showBottomSheet by viewModel.showBottomSheet.collectAsState()
+
+    val screenWidth = LocalContext.current.resources.displayMetrics.widthPixels.toFloat()
+    val screenHeight = LocalContext.current.resources.displayMetrics.heightPixels.toFloat()
+
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -144,13 +167,36 @@ private fun CameraContent(
                 ObjectRecognitionOverlay(
                     detectionResults = detectionResults
                 )
+
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    ExpandableResultCard(
+                        results = visualSearchResults,
+                        isLoading = isSearching,
+                        onDismiss = { viewModel.toggleBottomSheet(false) },
+                        showBottomSheet = showBottomSheet,
+                        updateBottomSheet = { viewModel.toggleBottomSheet(it)},
+                        onSaveImage = {
+                            if (cameraController != null) {
+                                viewModel.capturePhoto(
+                                    context = context,
+                                    cameraController = cameraController,
+                                    detections = detectionResults,
+                                    screenHeight =  screenHeight,
+                                    screenWidth = screenWidth,
+                                    savedSearchResult = {it}
+                                )
+                            }
+                        }
+                    )
+                }
             }
-
-
-
-            SwitchModeButton(
+            ControlButtons(
                 isChecked = isImageDetectionChecked,
-                onCheckedChange = onSwitchModeClicked
+                onCheckedChange = onSwitchModeClicked,
+                onBookmarkClick = { onNavigateToSavedSearches() }
             )
         }
     }
@@ -201,30 +247,65 @@ private fun ObjectRecognitionOverlay(detectionResults: List<Detection>) {
             modifier = Modifier.fillMaxSize(),
             text = "Center object inside the box"
         )
-        CameraOverlay(
-            detections = detectionResults
-        )
+        /*
+        Uncomment to draw bounding boxes around detected objects
+            CameraOverlay(
+                detections = detectionResults
+            )
+         */
     }
 }
 
 
 
 @Composable
-private fun SwitchModeButton(
+private fun ControlButtons(
     isChecked: Boolean,
-    onCheckedChange: () -> Unit
+    onCheckedChange: () -> Unit,
+    onBookmarkClick: () -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 40.dp, end = 48.dp, start = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Spacer(modifier = Modifier.weight(0.8f)) // Push buttons to the right
+
+        BookmarkButton(
+            onClick = onBookmarkClick,
+            modifier = Modifier.size(40.dp)
+        )
+
         SwitchIconsButton(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = (-24).dp, y = (-40).dp)
-                .padding(16.dp),
             checked = isChecked,
             onCheckedChange = {
                 Log.d("APP_LENS", "Switching mode")
                 onCheckedChange()
-            }
+            },
+            modifier = Modifier.size(48.dp)
+        )
+    }
+}
+
+@Composable
+private fun BookmarkButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.bookmarks),
+            contentDescription = "Bookmarks",
+            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.size(24.dp)
         )
     }
 }

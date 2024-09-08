@@ -23,6 +23,7 @@ class DetectObjectManager(
      */
     fun execute(
         bitmap: Bitmap,
+        originalBitmap: Bitmap,
         rotation: Int,
         confidenceThreshold: Float,
         onSuccess: (List<Detection>) -> Unit,
@@ -30,6 +31,7 @@ class DetectObjectManager(
     ) {
         return objectDetectionManager.detectObjectsInCurrentFrame(
             bitmap = bitmap,
+            originalBitmap = originalBitmap,
             rotation,
             confidenceThreshold,
             onSuccess,

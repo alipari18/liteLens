@@ -18,6 +18,7 @@ import com.example.litelens.domain.repository.languageIdentification.LanguageIde
 import com.example.litelens.domain.repository.objectDetection.ObjectDetectionManager
 import com.example.litelens.domain.repository.textRecognition.TextRecognitionManager
 import com.example.litelens.domain.repository.textTranslation.TextTranslationManager
+import com.example.litelens.utils.FirebaseStorageManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -87,8 +88,17 @@ class AppModule {
     @Provides
     @Singleton
     fun provideBingVisualSearchRepository(
-        client: OkHttpClient
+        client: OkHttpClient,
+        @ApplicationContext context: Context
     ): BingVisualSearchRepository {
-        return BingVisualSearchRepositoryImpl(client)
+        return BingVisualSearchRepositoryImpl(client, context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseStorageManager(
+        @ApplicationContext context: Context
+    ): FirebaseStorageManager {
+        return FirebaseStorageManager()
     }
 }

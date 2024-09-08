@@ -8,6 +8,9 @@ import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -36,6 +39,12 @@ fun DrawDetectionBox(detection: Detection) {
     val screenWidth = context.resources.displayMetrics.widthPixels.toFloat()
     val screenHeight = context.resources.displayMetrics.heightPixels.toFloat()
 
+    val boxState = remember { mutableStateOf(detection) }
+
+    LaunchedEffect(detection) {
+        boxState.value = detection
+    }
+
     // Calculate scaling
     val scaleX = screenWidth / detection.imageWidth
     val scaleY = screenHeight / detection.imageHeight
@@ -60,13 +69,14 @@ fun DrawDetectionBox(detection: Detection) {
         Canvas(
             modifier = Modifier.matchParentSize(),
             onDraw = {
+                val currentBox = boxState.value
                 Log.d("DrawDetectionBox", "onDraw called")
 
                 // Calculate scaled box
-                val left = detection.boundingBox.left * scale + offsetX
-                val top = detection.boundingBox.top * scale + offsetY
-                val right = detection.boundingBox.right * scale + offsetX
-                val bottom = detection.boundingBox.bottom * scale + offsetY
+                val left = currentBox.boundingBox.left * scale + offsetX
+                val top = currentBox.boundingBox.top * scale + offsetY
+                val right = currentBox.boundingBox.right * scale + offsetX
+                val bottom = currentBox.boundingBox.bottom * scale + offsetY
 
                 // Draw bounding box
                 val strokeWidth = 4f * density
@@ -82,7 +92,7 @@ fun DrawDetectionBox(detection: Detection) {
                 drawLine(Color(paint.color), Offset(left, top), Offset(left, top + cornerSize), strokeWidth)
 
                 // Draw text
-                val text = "${detection.detectedObjectName} ${(detection.confidenceScore * 100).toInt()}%"
+                val text = "${currentBox.detectedObjectName} ${(currentBox.confidenceScore * 100).toInt()}%"
                 drawIntoCanvas { canvas ->
                     val textRect = Rect()
                     textPaint.getTextBounds(text, 0, text.length, textRect)
@@ -113,15 +123,4 @@ fun DrawDetectionBox(detection: Detection) {
     Log.d("DrawDetectionBox", "Screen: ${screenWidth}x${screenHeight}, Image: ${detection.imageWidth}x${detection.imageHeight}")
     Log.d("DrawDetectionBox", "Scale: $scale, Offset: ($offsetX, $offsetY)")
     Log.d("DrawDetectionBox", "Original Box: ${detection.boundingBox}")
-}
-
-
-private val labelColorMap = mutableMapOf<String, Int>()
-
-private fun getColorForLabel(type: DetectionType): Int {
-    return when (type) {
-        DetectionType.OBJECT_DETECTION -> Color.Red.toArgb() // Use a clearly visible color
-        DetectionType.TEXT_DETECTION -> Color.Green.toArgb()
-        else -> Color.Blue.toArgb()
-    }
 }

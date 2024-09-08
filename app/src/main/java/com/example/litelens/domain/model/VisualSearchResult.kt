@@ -1,7 +1,19 @@
 package com.example.litelens.domain.model
 
+import com.google.firebase.firestore.PropertyName
+
 data class VisualSearchResult(
-    val title: String,
-    val url: String,
-    val snippet: String
-)
+    @PropertyName("title") val title: String? = null,
+    @PropertyName("url") val url: String? = null,
+    @PropertyName("snippet") val snippet: String? = null,
+    @PropertyName("actionType") val actionType: String? = null,
+    @PropertyName("thumbnailUrl") val thumbnailUrl: String? = null,
+    @PropertyName("contentUrl") val contentUrl: String? = null,
+    @PropertyName("contentSize") val contentSize: String? = null,
+    @PropertyName("encodingFormat") val encodingFormat: String? = null,
+    @PropertyName("width") val width: Int? = null,
+    @PropertyName("height") val height: Int? = null
+) {
+    // No-argument constructor required by Firestore
+    constructor() : this(null, null, null)
+}
