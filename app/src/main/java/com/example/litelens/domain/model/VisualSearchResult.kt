@@ -12,7 +12,12 @@ data class VisualSearchResult(
     @PropertyName("contentSize") val contentSize: String? = null,
     @PropertyName("encodingFormat") val encodingFormat: String? = null,
     @PropertyName("width") val width: Int? = null,
-    @PropertyName("height") val height: Int? = null
+    @PropertyName("height") val height: Int? = null,
+    @PropertyName("imageUrl") val imageUrl: String? = null,
+    @PropertyName("timestamp") val timestamp: com.google.firebase.Timestamp? = null,
+    @PropertyName("documentId") val documentId: String? = null,
+    @PropertyName("type") val type: String? = null
+
 ) {
     // No-argument constructor required by Firestore
     constructor() : this(null, null, null)

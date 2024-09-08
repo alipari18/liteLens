@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.example.litelens.domain.model.VisualSearchResult
 import com.example.litelens.domain.repository.bingVisualSearch.BingVisualSearchRepository
@@ -63,7 +64,7 @@ class BingVisualSearchRepositoryImpl @Inject constructor(
                 .build()
 
             val request = Request.Builder()
-                .url("https://api.bing.microsoft.com/v7.0/images/visualsearch?mkt=it-IT")
+                .url("https://api.bing.microsoft.com/v7.0/images/visualsearch?mkt=en-US&safesearch=Strict")
                 .addHeader("Ocp-Apim-Subscription-Key", "bf4fd86d53204777bb564ef06022d873")
                 .post(requestBody)
                 .build()
@@ -151,6 +152,9 @@ class BingVisualSearchRepositoryImpl @Inject constructor(
                         // Exclude "MoreSizes" and "ImageById" actions
                     }
                 }
+            }
+            if(results.isEmpty()){
+                Log.d("BingVisualSearchRepositoryImpl", "searchImage: No results found")
             }
             Log.d("BingVisualSearchRepositoryImpl", "searchImage after: $results")
             Result.success(results)

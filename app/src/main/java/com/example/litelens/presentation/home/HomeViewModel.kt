@@ -2,6 +2,7 @@ package com.example.litelens.presentation.home
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -433,6 +434,14 @@ class HomeViewModel @Inject constructor(
         return labelColorMap.getOrPut(label) {
             // Generates a random color for the label if it doesn't exist in the map.
             Random.nextInt()
+        }
+    }
+
+
+    fun openUrlInBrowser(context: Context, url: String?) {
+        url?.let {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(it))
+            context.startActivity(intent)
         }
     }
 

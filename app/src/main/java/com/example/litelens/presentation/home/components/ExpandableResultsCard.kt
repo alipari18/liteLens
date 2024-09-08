@@ -75,7 +75,8 @@ fun ExpandableResultCard(
     showBottomSheet: Boolean,
     updateBottomSheet: (Boolean) -> Unit,
     onDismiss: () -> Unit,
-    onSaveImage: (result: VisualSearchResult) -> Unit
+    onSaveImage: (result: VisualSearchResult) -> Unit,
+    onViewClick: (url: String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val scope = rememberCoroutineScope()
@@ -172,7 +173,7 @@ fun ExpandableResultCard(
                                 contentPadding = PaddingValues(bottom = 80.dp)
                             ) {
                                 items(results) { result ->
-                                    ResultItem(result, onSaveImage)
+                                    ResultItem(result, onSaveImage, onViewClick)
                                 }
                             }
                         }
@@ -197,7 +198,7 @@ fun ExpandableResultCard(
 }
 
 @Composable
-fun ResultItem(result: VisualSearchResult, onSaveImage: (result: VisualSearchResult) -> Unit) {
+fun ResultItem(result: VisualSearchResult, onSaveImage: (result: VisualSearchResult) -> Unit, onViewClick: (url: String) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -281,6 +282,7 @@ fun ResultItem(result: VisualSearchResult, onSaveImage: (result: VisualSearchRes
                             onClick = {
                                 // Open the URL in the browser
                                 Log.d("ResultItem", "Opening URL: ${result.url}")
+                                result.url?.let { onViewClick(it) }
 
                             },
                             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
@@ -341,7 +343,8 @@ fun ExpandableResultCardPreview() {
         showBottomSheet = true,
         updateBottomSheet = {},
         onDismiss = {},
-        onSaveImage = {}
+        onSaveImage = {},
+        onViewClick = {}
     )
 }
 

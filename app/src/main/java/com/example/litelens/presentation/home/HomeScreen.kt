@@ -189,7 +189,8 @@ private fun CameraContent(
                                     savedSearchResult = {it}
                                 )
                             }
-                        }
+                        },
+                        onViewClick = { viewModel.openUrlInBrowser(context, it) }
                     )
                 }
             }

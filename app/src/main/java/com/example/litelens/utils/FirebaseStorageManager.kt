@@ -44,6 +44,7 @@ class FirebaseStorageManager {
         val document = firestore.collection("searchResults").document()
 
         val searchResultMap = hashMapOf(
+            "documentId" to document.id,
             "imageUrl" to imageUrl,
             "title" to searchResult.title,
             "thumbnailUrl" to searchResult.thumbnailUrl,
@@ -69,6 +70,15 @@ class FirebaseStorageManager {
                 }
             }
             Result.success(data)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteSearchResult(documentId: String): Result<Unit> {
+        return try {
+            firestore.collection("searchResults").document(documentId).delete().await()
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
