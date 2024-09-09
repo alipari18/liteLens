@@ -89,6 +89,13 @@ class HomeViewModel @Inject constructor(
     private val _showBottomSheet = MutableStateFlow(false)
     val showBottomSheet: StateFlow<Boolean> = _showBottomSheet
 
+    private val _isLoadingSaving = MutableStateFlow(false)
+    val isLoadingSaving: StateFlow<Boolean> = _isLoadingSaving
+
+    fun setLoadingSavingState(isLoading: Boolean){
+        _isLoadingSaving.value = isLoading
+    }
+
     fun toggleImageDetection() {
         _isImageDetectionChecked.value = !_isImageDetectionChecked.value
     }
@@ -231,18 +238,41 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun saveSearch(
+        context: Context,
+        savedSearchResult: () -> VisualSearchResult,
+        detections: List<Detection>
+    ){
+        setLoadingSavingState(true)
+        viewModelScope.launch {
+            detections.first().bitmap?.let {
+                val visualSearchResult = savedSearchResult()
+                firebaseStorageManager.saveImageAndResult(it, visualSearchResult)
+                    .onSuccess { documentId ->
+                        Log.d(TAG, "Image and search result saved to Firebase with ID: $documentId")
+                        Toast.makeText(context, "Search saved successfully and can be view from the history", Toast.LENGTH_SHORT).show()
+                    }
+                    .onFailure { exception ->
+                        Log.e(TAG, "Failed to save image and search result to Firebase", exception)
+                        Toast.makeText(context, "Failed to save search result", Toast.LENGTH_SHORT).show()
+
+                    }
+            }
+
+            setLoadingSavingState(false)
+        }
+        setLoadingSavingState(false)
+    }
+
     fun capturePhoto(
         context: Context,
-        cameraController: LifecycleCameraController,
-        screenWidth: Float,
-        screenHeight: Float,
         detections: List<Detection>,
         savedSearchResult: () -> VisualSearchResult
     ){
 
         Log.d(TAG, "capturePhoto() called with ${savedSearchResult()}")
 
-
+        setLoadingSavingState(true)
         // Save the Image-Bitmap to Device
         detections.first().bitmap?.let {
             val result: Boolean = saveBitmapToDevice(
@@ -261,10 +291,12 @@ class HomeViewModel @Inject constructor(
                         .onFailure { exception ->
                             Log.e(TAG, "Failed to save image and search result to Firebase", exception)
                             Toast.makeText(context, "Failed to save search result", Toast.LENGTH_SHORT).show()
+
                         }
+                    setLoadingSavingState(false)
                 }
             }
-
+            setLoadingSavingState(false)
 
         }
 

@@ -11,6 +11,7 @@ import com.google.android.gms.tasks.Task
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import javax.inject.Inject
 import kotlin.math.abs
@@ -20,6 +21,7 @@ class TextRecognitionManagerImpl @Inject constructor(
 ): TextRecognitionManager {
 
     private val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private val chineseTextRecognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
 
     override fun recognizeTextInBitmap(
         bitmap: Bitmap,

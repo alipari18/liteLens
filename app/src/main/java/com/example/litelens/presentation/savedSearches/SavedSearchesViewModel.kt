@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.litelens.domain.model.VisualSearchResult
@@ -48,12 +49,13 @@ class SavedSearchesViewModel @Inject constructor(
         }
     }
 
-    fun deleteSearchResult(documentId: String) {
+    fun deleteSearchResult(context: Context, documentId: String) {
         viewModelScope.launch {
             firebaseStorageManager.deleteSearchResult(documentId)
                 .onSuccess {
                     Log.d(TAG, "Search result deleted successfully")
                     retrieveSavedSearches()
+                    Toast.makeText(context, "Search result deleted successfully", Toast.LENGTH_SHORT).show()
                 }
                 .onFailure {
                     Log.d(TAG, "Failed to delete search result: $it")

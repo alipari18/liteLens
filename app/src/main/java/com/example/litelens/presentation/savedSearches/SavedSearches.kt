@@ -1,6 +1,7 @@
 package com.example.litelens.presentation.savedSearches
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,7 +27,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,6 +42,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.litelens.R
+import com.example.litelens.domain.model.VisualSearchResult
+import com.example.litelens.presentation.common.AlertDialogComposable
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -52,6 +61,9 @@ fun SavedSearches() {
     val isLoading by viewModel.isLoading.collectAsState()
 
     val context = LocalContext.current
+
+    var showDialog by remember { mutableStateOf(false) }
+    var selectedResult by remember { mutableStateOf<VisualSearchResult?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.retrieveSavedSearches()
@@ -97,10 +109,29 @@ fun SavedSearches() {
                             viewModel.openUrlInBrowser(context = context, search.url)
                         },
                         onDeleteClick = {
-                            viewModel.deleteSearchResult(search.documentId ?: "")
+                            selectedResult = search
+                            showDialog = true
                         }
                     )
                 }
+            }
+
+            if(showDialog){
+                AlertDialogComposable(
+                    title = "Delete Search",
+                    message = "Confirm that you want to delete the search:",
+                    firstButtonText = "Delete",
+                    icon = Icons.Default.Delete,
+                    result = selectedResult,
+                    onDismissRequest = { showDialog = false },
+                    onSaveImage = {
+                        Toast.makeText(context, "Deleting the search..", Toast.LENGTH_SHORT).show()
+                        viewModel.deleteSearchResult(context, selectedResult?.documentId ?: "")
+                        showDialog = false
+                    },
+                    isLoading = false,
+                    onThirdButtonClick = {}
+                )
             }
         }
     }
@@ -186,6 +217,8 @@ fun SavedSearchItem(
                         Text("Delete")
                     }
                 }
+
+
             }
         }
     }

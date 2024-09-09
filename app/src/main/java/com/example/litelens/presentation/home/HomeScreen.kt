@@ -146,6 +146,8 @@ private fun CameraContent(
 
     val context = LocalContext.current
 
+    val isLoadingSaving = viewModel.isLoadingSaving.collectAsState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -179,17 +181,16 @@ private fun CameraContent(
                         showBottomSheet = showBottomSheet,
                         updateBottomSheet = { viewModel.toggleBottomSheet(it)},
                         onSaveImage = {
-                            if (cameraController != null) {
                                 viewModel.capturePhoto(
                                     context = context,
-                                    cameraController = cameraController,
                                     detections = detectionResults,
-                                    screenHeight =  screenHeight,
-                                    screenWidth = screenWidth,
                                     savedSearchResult = {it}
                                 )
-                            }
                         },
+                        onSaveOnlySearch = {
+                            viewModel.saveSearch(context, {it}, detectionResults)
+                        },
+                        isLoadingSaving = isLoadingSaving.value,
                         onViewClick = { viewModel.openUrlInBrowser(context, it) }
                     )
                 }

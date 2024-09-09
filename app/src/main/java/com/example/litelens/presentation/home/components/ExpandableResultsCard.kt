@@ -1,6 +1,7 @@
 package com.example.litelens.presentation.home.components
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -64,6 +66,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.litelens.R
 import com.example.litelens.domain.model.VisualSearchResult
+import com.example.litelens.presentation.common.AlertDialogComposable
 import kotlinx.coroutines.launch
 import java.net.URI
 
@@ -76,10 +79,16 @@ fun ExpandableResultCard(
     updateBottomSheet: (Boolean) -> Unit,
     onDismiss: () -> Unit,
     onSaveImage: (result: VisualSearchResult) -> Unit,
+    onSaveOnlySearch: (result: VisualSearchResult) -> Unit,
+    isLoadingSaving: Boolean,
     onViewClick: (url: String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-    val scope = rememberCoroutineScope()
+
+    var showDialog by remember { mutableStateOf(false) }
+    var selectedResult by remember { mutableStateOf<VisualSearchResult?>(null) }
+
+    val context = LocalContext.current
 
     LaunchedEffect(results, isLoading) {
         updateBottomSheet(results.isNotEmpty() || isLoading)
@@ -173,7 +182,10 @@ fun ExpandableResultCard(
                                 contentPadding = PaddingValues(bottom = 80.dp)
                             ) {
                                 items(results) { result ->
-                                    ResultItem(result, onSaveImage, onViewClick)
+                                    ResultItem(result, {
+                                        selectedResult = it
+                                        showDialog = true
+                                    }, onViewClick)
                                 }
                             }
                         }
@@ -191,6 +203,30 @@ fun ExpandableResultCard(
                     ) {
                         Text("Close", color = MaterialTheme.colorScheme.onPrimary)
                     }
+
+                    if(showDialog){
+                        AlertDialogComposable(
+                            title = "Save Image",
+                            message = "You can choose only to save the search on the history or to save also the image scanned in the local storage of the device, please choose one of the options:",
+                            firstButtonText = "Save also in local",
+                            icon = Icons.Default.FavoriteBorder,
+                            result = selectedResult,
+                            onDismissRequest = { showDialog = false },
+                            onSaveImage = {
+                                Toast.makeText(context, "Saving the search and the image locally..", Toast.LENGTH_SHORT).show()
+                                onSaveImage(it)
+                                showDialog = false
+                            },
+                            showThirdButton = true,
+                            onThirdButtonClick = {
+                                Toast.makeText(context, "Saving the search..", Toast.LENGTH_SHORT).show()
+                                onSaveOnlySearch(it)
+                                showDialog = false
+                            },
+                            isLoading = isLoadingSaving
+                        )
+                    }
+
                 }
             }
         }
@@ -344,7 +380,9 @@ fun ExpandableResultCardPreview() {
         updateBottomSheet = {},
         onDismiss = {},
         onSaveImage = {},
-        onViewClick = {}
+        onViewClick = {},
+        isLoadingSaving = false,
+        onSaveOnlySearch = {}
     )
 }
 

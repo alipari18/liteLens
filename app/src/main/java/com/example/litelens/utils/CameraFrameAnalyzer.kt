@@ -37,7 +37,7 @@ class CameraFrameAnalyzer @Inject constructor(
 
 
         frameSkipCounter++
-        if (frameSkipCounter % 45 == 0) {
+        if (frameSkipCounter % 15 == 0) {
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
             val bitmapImage: Bitmap = imageProxy.toBitmap()
             val rotatedBitmap = bitmapImage.rotateIfRequired(rotationDegrees)
