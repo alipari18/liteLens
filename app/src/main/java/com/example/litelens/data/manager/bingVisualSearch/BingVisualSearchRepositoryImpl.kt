@@ -129,7 +129,8 @@ class BingVisualSearchRepositoryImpl @Inject constructor(
                                         contentSize = item.optString("contentSize", ""),
                                         encodingFormat = item.optString("encodingFormat", ""),
                                         width = item.optInt("width", 0),
-                                        height = item.optInt("height", 0)
+                                        height = item.optInt("height", 0),
+                                        type = "VisualSearch"
                                     )
                                 )
                             }

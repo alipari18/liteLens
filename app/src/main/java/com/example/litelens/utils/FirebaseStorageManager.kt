@@ -43,14 +43,28 @@ class FirebaseStorageManager {
     private suspend fun saveToFirestore(imageUrl: String, searchResult: VisualSearchResult): String {
         val document = firestore.collection("searchResults").document()
 
-        val searchResultMap = hashMapOf(
-            "documentId" to document.id,
-            "imageUrl" to imageUrl,
-            "title" to searchResult.title,
-            "thumbnailUrl" to searchResult.thumbnailUrl,
-            "url" to searchResult.url,
-            "timestamp" to com.google.firebase.Timestamp.now()
-        )
+        val searchResultMap = if(searchResult.type == "VisualSearch") {
+            hashMapOf(
+                "documentId" to document.id,
+                "imageUrl" to imageUrl,
+                "title" to searchResult.title,
+                "thumbnailUrl" to searchResult.thumbnailUrl,
+                "url" to searchResult.url,
+                "timestamp" to com.google.firebase.Timestamp.now(),
+                "type" to searchResult.type
+            )
+        }else{
+            hashMapOf(
+                "documentId" to document.id,
+                "imageUrl" to imageUrl,
+                "sourceLanguage" to searchResult.sourceLanguage,
+                "translatedText" to searchResult.translatedText,
+                "targetLanguage" to searchResult.targetLanguage,
+                "originalText" to searchResult.originalText,
+                "type" to searchResult.type,
+                "timestamp" to com.google.firebase.Timestamp.now()
+            )
+        }
 
         document.set(searchResultMap).await()
         return document.id
@@ -62,12 +76,7 @@ class FirebaseStorageManager {
             val data = documents.mapNotNull { document ->
 
                 val result = document.toObject(VisualSearchResult::class.java)
-                // Ensure required fields are not null
-                if (result.title != null && result.url != null) {
-                    result
-                } else {
-                    null
-                }
+                result
             }
             Result.success(data)
         } catch (e: Exception) {

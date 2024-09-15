@@ -16,7 +16,11 @@ data class VisualSearchResult(
     @PropertyName("imageUrl") val imageUrl: String? = null,
     @PropertyName("timestamp") val timestamp: com.google.firebase.Timestamp? = null,
     @PropertyName("documentId") val documentId: String? = null,
-    @PropertyName("type") val type: String? = null
+    @PropertyName("type") val type: String? = null,
+    @PropertyName("sourceLanguage") val sourceLanguage: String? = null,
+    @PropertyName("translatedText") val translatedText: String? = null,
+    @PropertyName("originalText") val originalText: String? = null,
+    @PropertyName("targetLanguage") val targetLanguage: String? = null,
 
 ) {
     // No-argument constructor required by Firestore

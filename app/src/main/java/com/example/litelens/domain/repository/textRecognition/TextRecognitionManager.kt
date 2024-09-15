@@ -9,7 +9,7 @@ interface TextRecognitionManager {
     fun recognizeTextInBitmap(
         bitmap: Bitmap,
         rotationDegrees: Int,
-        onSuccess: (Text?) -> Unit,
+        onSuccess: (Detection) -> Unit,
         onError: (Exception) -> Unit
     ): Task<Text>
 }

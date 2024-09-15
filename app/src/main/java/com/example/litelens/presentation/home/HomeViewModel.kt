@@ -89,6 +89,9 @@ class HomeViewModel @Inject constructor(
     private val _showBottomSheet = MutableStateFlow(false)
     val showBottomSheet: StateFlow<Boolean> = _showBottomSheet
 
+    private val _showBottomSheetText = MutableStateFlow(false)
+    val showBottomSheetText: StateFlow<Boolean> = _showBottomSheetText
+
     private val _isLoadingSaving = MutableStateFlow(false)
     val isLoadingSaving: StateFlow<Boolean> = _isLoadingSaving
 
@@ -102,6 +105,31 @@ class HomeViewModel @Inject constructor(
 
     fun toggleBottomSheet(control: Boolean) {
         _showBottomSheet.value = control
+
+    }
+
+    fun toggleBottomSheetText(control: Boolean) {
+        _showBottomSheetText.value = control
+
+    }
+
+    private val _shouldAnalyzeFrame = MutableStateFlow(false)
+    val shouldAnalyzeFrame: StateFlow<Boolean> = _shouldAnalyzeFrame.asStateFlow()
+
+    fun triggerFrameAnalysis() {
+        _shouldAnalyzeFrame.value = true
+    }
+
+    fun resetFrameAnalysis() {
+        _shouldAnalyzeFrame.value = false
+    }
+
+    private val _targetLanguage = MutableStateFlow("English")
+    val targetLanguage: StateFlow<String> = _targetLanguage.asStateFlow()
+
+    fun setTargetLanguage(language: String) {
+        _targetLanguage.value = language
+
 
     }
 
@@ -137,7 +165,7 @@ class HomeViewModel @Inject constructor(
     fun initializeCameraController(
         context: Context,
         isImageDetectionChecked: Boolean,
-        onTextRecognized: (String) -> Unit,
+        onTextRecognized: (List<VisualSearchResult>) -> Unit,
         onObjectDetectionResult: (List<Detection>) -> Unit,
         screenWidth: Int,
         screenHeight: Int
@@ -161,7 +189,11 @@ class HomeViewModel @Inject constructor(
                 languageIdentificationManager = languageIdentificationManager,
                 context = context,
                 screenHeight = screenHeight,
-                screenWidth = screenWidth
+                screenWidth = screenWidth,
+                shouldAnalyzeFrame = { shouldAnalyzeFrame.value },
+                resetFrameAnalysis = { resetFrameAnalysis() },
+                targetLanguage = targetLanguage.value,
+                onObjectDetectionResults = onObjectDetectionResult
             )
             prepareCameraController(context, textTranslationAnalyzer)
         }
@@ -170,7 +202,7 @@ class HomeViewModel @Inject constructor(
     fun updateCameraAnalyzer(
         context: Context,
         isImageDetectionChecked: Boolean,
-        onTextRecognized: (String) -> Unit,
+        onTextRecognized: (List<VisualSearchResult>) -> Unit,
         onObjectDetectionResult: (List<Detection>) -> Unit,
         screenWidth: Int,
         screenHeight: Int
@@ -194,7 +226,11 @@ class HomeViewModel @Inject constructor(
                     languageIdentificationManager = languageIdentificationManager,
                     context = context,
                     screenHeight = screenHeight,
-                    screenWidth = screenWidth
+                    screenWidth = screenWidth,
+                    shouldAnalyzeFrame = { shouldAnalyzeFrame.value },
+                    resetFrameAnalysis = { resetFrameAnalysis() },
+                    targetLanguage = targetLanguage.value,
+                    onObjectDetectionResults = onObjectDetectionResult
                 )
             }
             controller.setImageAnalysisAnalyzer(

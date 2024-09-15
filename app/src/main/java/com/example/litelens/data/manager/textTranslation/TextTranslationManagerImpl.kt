@@ -1,5 +1,6 @@
 package com.example.litelens.data.manager.textTranslation
 
+import com.example.litelens.domain.model.VisualSearchResult
 import com.example.litelens.domain.repository.textTranslation.TextTranslationManager
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.Translation
@@ -15,7 +16,7 @@ class TextTranslationManagerImpl @Inject constructor() : TextTranslationManager 
         text: String,
         sourceLanguage: String,
         targetLanguage: String,
-        onSuccess: (String) -> Unit,
+        onSuccess: (List<VisualSearchResult>) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
 
@@ -33,7 +34,18 @@ class TextTranslationManagerImpl @Inject constructor() : TextTranslationManager 
             ?.addOnSuccessListener {
                 client?.translate(text)
                     ?.addOnSuccessListener { translatedText ->
-                        onSuccess(translatedText)
+                        val results = mutableListOf<VisualSearchResult>()
+                        results.add(
+                            VisualSearchResult(
+                                originalText = text,
+                                sourceLanguage = sourceLanguage,
+                                translatedText = translatedText,
+                                targetLanguage = targetLanguage,
+                                type = "TextSearch"
+                            )
+                        )
+
+                        onSuccess(results)
                     }
                     ?.addOnFailureListener { exception ->
                         onFailure(exception)

@@ -16,6 +16,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.MutableLiveData
 import com.example.litelens.domain.model.Detection
+import com.example.litelens.domain.model.VisualSearchResult
 import com.example.litelens.domain.repository.languageIdentification.LanguageIdentificationManager
 import com.example.litelens.domain.repository.textRecognition.TextRecognitionManager
 import com.example.litelens.domain.repository.textTranslation.TextTranslationManager
@@ -28,13 +29,17 @@ import java.lang.Exception
 import kotlin.math.roundToInt
 
 class TextRecognitionAnalyzer(
-    private val onTextRecognized: (String) -> Unit,
+    private val onTextRecognized: (List<VisualSearchResult>) -> Unit,
     private val textRecognitionManager: TextRecognitionManager,
     private val languageIdentificationManager: LanguageIdentificationManager,
     private val textTranslationManager: TextTranslationManager,
     private val context: Context,
     private val screenWidth: Int,
-    private val screenHeight: Int
+    private val screenHeight: Int,
+    private val shouldAnalyzeFrame: () -> Boolean,
+    private val resetFrameAnalysis: () -> Unit,
+    private var targetLanguage: String,
+    private val onObjectDetectionResults: (List<Detection>) -> Unit
 ) : ImageAnalysis.Analyzer {
 
     // Define your bounding box as percentages of the screen dimensions (for cropping)
@@ -45,29 +50,25 @@ class TextRecognitionAnalyzer(
 
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
-
-        frameSkipCounter++
-        if(frameSkipCounter % 15 == 0){
-            val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-            val bitmap = imageProxy.toBitmap()  // Utility function to convert ImageProxy to Bitmap
-
-            // Crop the bitmap to only include the area inside the bounding box
-            val rotatedBitmap = bitmap.rotateIfRequired(rotationDegrees)
-            val croppedBitmap = cropBitmapToOverlay(
-                rotatedBitmap,
-                screenWidth,
-                screenHeight
-            )
-            val preprocessedBitmap = preprocessBitmapForTextRecognition(croppedBitmap)
-
-            // Perform text recognition on the cropped bitmap
-            recognizeTextFromBitmap(preprocessedBitmap, rotationDegrees).addOnCompleteListener{
-                imageProxy.close()
-            }
+        if (!shouldAnalyzeFrame()) {
+            imageProxy.close()
+            return
         }
-        imageProxy.close()
 
+        val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+        val bitmap = imageProxy.toBitmap()
 
+        val correctedBitmap = bitmap.rotateIfRequired(rotationDegrees)
+
+        val croppedBitmap = cropBitmapToOverlay(correctedBitmap, screenWidth, screenHeight)
+
+        val preprocessedBitmap = preprocessBitmapForTextRecognition(croppedBitmap)
+
+        // Perform text recognition on the preprocessed bitmap
+        recognizeTextFromBitmap(croppedBitmap, 0).addOnCompleteListener {
+            resetFrameAnalysis()
+            imageProxy.close()
+        }
     }
 
     private fun cropBitmapToOverlay(
@@ -102,13 +103,27 @@ class TextRecognitionAnalyzer(
         val safeStartX = startX.coerceIn(0, bitmapWidth - cropBitmapWidth)
         val safeStartY = startY.coerceIn(0, bitmapHeight - cropBitmapHeight)
 
-        // Create and return the cropped bitmap without scaling
-        return Bitmap.createBitmap(
-            sourceBitmap,
+        // Ensure the crop area is centered and maintains aspect ratio
+        val cropRect = Rect(
             safeStartX,
             safeStartY,
-            cropBitmapWidth,
-            cropBitmapHeight
+            safeStartX + cropBitmapWidth,
+            safeStartY + cropBitmapHeight
+        )
+
+        // Add some padding to the crop area
+        val padding = (cropBitmapWidth * 0.1).toInt() // 10% padding
+        cropRect.inset(-padding, -padding)
+
+        // Ensure the cropRect is within the bounds of the source bitmap
+        cropRect.intersect(0, 0, sourceBitmap.width, sourceBitmap.height)
+
+        return Bitmap.createBitmap(
+            sourceBitmap,
+            cropRect.left,
+            cropRect.top,
+            cropRect.width(),
+            cropRect.height()
         )
     }
 
@@ -118,14 +133,14 @@ class TextRecognitionAnalyzer(
             rotationDegrees = rotationDegrees,
             onSuccess = { detectedTextList ->
                 // Process the list of detected text
-                if(detectedTextList?.text != null){
-                    Log.d("APP_LENS", "Detected Text: ${detectedTextList.text}")
-                    if(detectedTextList.text.isNotEmpty()){
-                        identifyLanguage(detectedTextList.text)
+                    Log.d("APP_LENS", "Detected Text: ${detectedTextList.detectedObjectName}")
+                    if(detectedTextList.detectedObjectName.isNotEmpty()){
+                        identifyLanguage(detectedTextList.detectedObjectName)
+                        onObjectDetectionResults(listOf(detectedTextList))
                     }else{
                         Log.d("APP_LENS", "No text detected")
+                        onTextRecognized(emptyList())
                     }
-                }
 
             },
             onError = { exception ->
@@ -150,6 +165,7 @@ class TextRecognitionAnalyzer(
                     translateDetectedText(text, languageCode)
                 } else {
                     Log.d("APP_LENS", "Language could not be identified")
+                    onTextRecognized(emptyList())
                 }
             },
             onFailure = { exception ->
@@ -165,6 +181,15 @@ class TextRecognitionAnalyzer(
 
     // Function to translate recognized text
     private fun translateDetectedText(text: String, sourceLanguage: String) {
+
+        targetLanguage = if(targetLanguage == "English"){
+            "en"
+        }else{
+            "it"
+        }
+
+        Log.d("APP_LENS", "Translating text to: $targetLanguage")
+
         textTranslationManager.translateText(
             text,
             sourceLanguage,
@@ -175,7 +200,8 @@ class TextRecognitionAnalyzer(
             onFailure = { exception ->
                 Log.e("APP_LENS", "Translation error: ${exception.message}")
                 Toast.makeText(context, "Translation failed", Toast.LENGTH_SHORT).show()
-            }
+            },
+            targetLanguage = targetLanguage
         )
     }
 
@@ -187,8 +213,18 @@ class TextRecognitionAnalyzer(
     }
 
     private fun Bitmap.rotateIfRequired(rotationDegrees: Int): Bitmap {
-        if (rotationDegrees == 0) return this
-        val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+        if (rotationDegrees == 0) {
+            // If no rotation is needed, we still need to flip the image vertically
+            // This is often necessary due to the camera's natural orientation
+            val matrix = Matrix().apply {
+                postScale(1f, -1f, width / 2f, height / 2f)
+            }
+            return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+        }
+
+        val matrix = Matrix().apply {
+            postRotate(rotationDegrees.toFloat())
+        }
         return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -99,27 +100,38 @@ fun SavedSearches() {
                 contentPadding = PaddingValues(16.dp)
             ) {
                 items(visualSearchResults) { search ->
-                    SavedSearchItem(
-                        imageUrl = search.imageUrl ?: "",
-                        thumbnailUrl = search.thumbnailUrl ?: "",
-                        title = search.title ?: "No title",
-                        url = search.url ?: "No URL",
-                        timestamp = search.timestamp?.toDate()?.time ?: 0,
-                        onViewClick = {
-                            viewModel.openUrlInBrowser(context = context, search.url)
-                        },
-                        onDeleteClick = {
-                            selectedResult = search
-                            showDialog = true
-                        }
-                    )
+                    if(search.type == "VisualSearch") {
+                        SavedSearchItem(
+                            imageUrl = search.imageUrl ?: "",
+                            thumbnailUrl = search.thumbnailUrl ?: "",
+                            title = search.title ?: "No title",
+                            url = search.url ?: "No URL",
+                            timestamp = search.timestamp?.toDate()?.time ?: 0,
+                            onViewClick = {
+                                viewModel.openUrlInBrowser(context = context, search.url)
+                            },
+                            onDeleteClick = {
+                                selectedResult = search
+                                showDialog = true
+                            }
+                        )
+                    } else if(search.type == "TextSearch") {
+
+                        TextSearchItem(
+                            search = search,
+                            onDeleteClick = {
+                                selectedResult = search
+                                showDialog = true
+                            }
+                        )
+                    }
                 }
             }
 
             if(showDialog){
                 AlertDialogComposable(
                     title = "Delete Search",
-                    message = "Confirm that you want to delete the search:",
+                    message = "Confirm that you want to delete the search?",
                     firstButtonText = "Delete",
                     icon = Icons.Default.Delete,
                     result = selectedResult,
@@ -219,6 +231,92 @@ fun SavedSearchItem(
                 }
 
 
+            }
+        }
+    }
+}
+
+@Composable
+fun TextSearchItem(
+    search: VisualSearchResult,
+    onDeleteClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column {
+            // Main image
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(search.imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Search Image",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                contentScale = ContentScale.Crop
+            )
+
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Original Text and Source Language
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Original (${search.sourceLanguage})",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = search.originalText ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Translated (${search.targetLanguage})",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = search.translatedText ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Timestamp
+                Text(
+                    text = SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()).format(Date(search.timestamp?.toDate()?.time ?: 0)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDeleteClick) {
+                        Text("Delete")
+                    }
+                }
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.example.litelens.presentation.home
 
 import android.util.Log
+import android.widget.Toast
 import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -42,7 +44,10 @@ import com.example.litelens.presentation.common.SwitchIconsButton
 import com.example.litelens.presentation.home.components.CameraPreview
 import com.example.litelens.presentation.home.components.CameraTextRecognitionOverlay
 import com.example.litelens.presentation.home.components.ExpandableResultCard
+import com.example.litelens.presentation.home.components.ExpandableTranslationResultCard
+import com.example.litelens.presentation.home.components.LanguageSelectionBar
 import com.example.litelens.presentation.home.components.RequestPermission
+import org.intellij.lang.annotations.Language
 
 @Composable
 fun HomeScreen(
@@ -63,7 +68,7 @@ fun HomeScreen(
     var detectionResults by remember { mutableStateOf<List<Detection>>(emptyList()) }
 
     val isImageDetectionChecked by viewModel.isImageDetectionChecked.collectAsState()
-    var translatedText by remember { mutableStateOf<String?>(null) }
+    var translatedText by remember { mutableStateOf<List<VisualSearchResult>>(emptyList()) }
 
     var cameraController by remember { mutableStateOf<LifecycleCameraController?>(null) }
 
@@ -74,22 +79,37 @@ fun HomeScreen(
 
     val showBottomSheet by viewModel.showBottomSheet.collectAsState()
 
+    val targetLanguage by viewModel.targetLanguage.collectAsState()
+
     LaunchedEffect(Unit) {
         cameraController = viewModel.initializeCameraController(
             context = context,
             isImageDetectionChecked = isImageDetectionChecked,
-            onTextRecognized = { translatedText = it },
+            onTextRecognized = {
+                if(it.isEmpty()){
+                    Toast.makeText(context, "No text detected", Toast.LENGTH_SHORT).show()
+                }else{
+                    viewModel.toggleBottomSheetText(true)
+                    Toast.makeText(context, "Text translated successfully", Toast.LENGTH_SHORT).show()
+                }
+                translatedText = it },
             onObjectDetectionResult = { detectionResults = it },
             screenWidth = screenWidth,
             screenHeight = screenHeight
         )
     }
 
-    LaunchedEffect(isImageDetectionChecked) {
+    LaunchedEffect(isImageDetectionChecked, targetLanguage) {
         viewModel.updateCameraAnalyzer(
             context = context,
             isImageDetectionChecked = isImageDetectionChecked,
-            onTextRecognized = { translatedText = it },
+            onTextRecognized = {
+                if(it.isEmpty()){
+                    Toast.makeText(context, "No text detected", Toast.LENGTH_SHORT).show()
+                }else{
+                    Toast.makeText(context, "Text translated successfully", Toast.LENGTH_SHORT).show()
+                }
+                translatedText = it },
             onObjectDetectionResult = { detectionResults = it },
             screenWidth = screenWidth,
             screenHeight = screenHeight
@@ -110,7 +130,7 @@ fun HomeScreen(
             isSearching = isSearching,
             viewModel = viewModel,
             onPreviewSizeChanged = { newSize -> previewSize = newSize },
-            onNavigateToSavedSearches = onNavigateToSavedSearches
+            onNavigateToSavedSearches = onNavigateToSavedSearches,
         )
 
         if (isSearching) {
@@ -128,7 +148,7 @@ fun HomeScreen(
 private fun CameraContent(
     cameraController: LifecycleCameraController?,
     isImageDetectionChecked: Boolean,
-    translatedText: String?,
+    translatedText: List<VisualSearchResult>,
     detectionResults: List<Detection>,
     onSwitchModeClicked: () -> Unit,
     visualSearchResults: List<VisualSearchResult>,
@@ -140,6 +160,8 @@ private fun CameraContent(
     val backgroundColor = MaterialTheme.colorScheme.background
 
     val showBottomSheet by viewModel.showBottomSheet.collectAsState()
+
+    val showBottomSheetText by viewModel.showBottomSheetText.collectAsState()
 
     val screenWidth = LocalContext.current.resources.displayMetrics.widthPixels.toFloat()
     val screenHeight = LocalContext.current.resources.displayMetrics.heightPixels.toFloat()
@@ -164,7 +186,27 @@ private fun CameraContent(
             )
 
             if (!isImageDetectionChecked) {
-                TextRecognitionOverlay(translatedText)
+                TextRecognitionOverlay(translatedText, viewModel)
+
+                LanguageSelectionBar(detectedLanguage = "Auto", targetLanguage = viewModel.targetLanguage.collectAsState().value, onTargetLanguageChange = viewModel::setTargetLanguage)
+
+                CaptureButton(
+                    onClick = viewModel::triggerFrameAnalysis,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 64.dp)
+                )
+
+                ExpandableTranslationResultCard(
+                    translationResult = translatedText.firstOrNull(),
+                    isLoading = viewModel.shouldAnalyzeFrame.collectAsState().value,
+                    showBottomSheet = showBottomSheetText,
+                    updateBottomSheet = { viewModel.toggleBottomSheetText(it)},
+                    onDismiss = { viewModel.toggleBottomSheetText(false)},
+                    onSaveTranslation = {viewModel.saveSearch(context,
+                        { translatedText.first() }, detectionResults)}
+                )
+
             }else{
                 ObjectRecognitionOverlay(
                     detectionResults = detectionResults
@@ -219,24 +261,15 @@ private fun CameraPreview(
 }
 
 @Composable
-private fun TextRecognitionOverlay(translatedText: String?) {
+private fun TextRecognitionOverlay(translatedText: List<VisualSearchResult>, viewModel: HomeViewModel) {
     Box(modifier = Modifier.fillMaxSize()) {
         CameraTextRecognitionOverlay(
             boxWidthPercentage = 0.8f,
             boxHeightPercentage = 0.2f,
             modifier = Modifier.fillMaxSize(),
-            text = "Center text inside the box"
+            text = "Center text inside the box",
+            isLoading = viewModel.shouldAnalyzeFrame.collectAsState().value
         )
-        translatedText?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.headlineMedium,
-                color = colorResource(id = R.color.white),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp)
-            )
-        }
     }
 }
 
@@ -247,7 +280,8 @@ private fun ObjectRecognitionOverlay(detectionResults: List<Detection>) {
             boxWidthPercentage = 0.8f,
             boxHeightPercentage = 0.5f,
             modifier = Modifier.fillMaxSize(),
-            text = "Center object inside the box"
+            text = "Center object inside the box",
+            isLoading = false
         )
         /*
         Uncomment to draw bounding boxes around detected objects
@@ -308,6 +342,28 @@ private fun BookmarkButton(
             contentDescription = "Bookmarks",
             tint = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun CaptureButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(72.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.8f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(Color.White)
         )
     }
 }
