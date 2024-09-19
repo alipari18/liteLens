@@ -9,10 +9,8 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
-import com.example.litelens.presentation.home.HomeScreen
 import com.example.litelens.presentation.navgraph.NavGraph
 import com.example.litelens.theme.LiteLensTheme
 import dagger.hilt.android.AndroidEntryPoint

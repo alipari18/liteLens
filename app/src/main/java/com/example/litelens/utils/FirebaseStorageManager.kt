@@ -1,7 +1,6 @@
 package com.example.litelens.utils
 
 import android.graphics.Bitmap
-import android.util.Log
 import com.example.litelens.domain.model.VisualSearchResult
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage

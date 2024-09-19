@@ -14,7 +14,6 @@ import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import androidx.lifecycle.MutableLiveData
 import com.example.litelens.domain.model.Detection
 import com.example.litelens.domain.model.VisualSearchResult
 import com.example.litelens.domain.repository.languageIdentification.LanguageIdentificationManager
@@ -23,9 +22,6 @@ import com.example.litelens.domain.repository.textTranslation.TextTranslationMan
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.text.Text
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import java.lang.Exception
 import kotlin.math.roundToInt
 
 class TextRecognitionAnalyzer(
@@ -46,8 +42,6 @@ class TextRecognitionAnalyzer(
     private val boxWidthPercentage = 0.8f  // Example: 80% of the screen width
     private val boxHeightPercentage = 0.2f // Example: 20% of the screen height
 
-    private var frameSkipCounter = 0
-
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
         if (!shouldAnalyzeFrame()) {
@@ -61,8 +55,6 @@ class TextRecognitionAnalyzer(
         val correctedBitmap = bitmap.rotateIfRequired(rotationDegrees)
 
         val croppedBitmap = cropBitmapToOverlay(correctedBitmap, screenWidth, screenHeight)
-
-        val preprocessedBitmap = preprocessBitmapForTextRecognition(croppedBitmap)
 
         // Perform text recognition on the preprocessed bitmap
         recognizeTextFromBitmap(croppedBitmap, 0).addOnCompleteListener {
@@ -227,24 +219,4 @@ class TextRecognitionAnalyzer(
         }
         return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
     }
-}
-
-
-fun preprocessBitmapForTextRecognition(bitmap: Bitmap): Bitmap {
-    val output = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(output)
-    val paint = Paint()
-
-    // Increase contrast
-    val colorMatrix = ColorMatrix(floatArrayOf(
-        2f, 0f, 0f, 0f, -25f,
-        0f, 2f, 0f, 0f, -25f,
-        0f, 0f, 2f, 0f, -25f,
-        0f, 0f, 0f, 1f, 0f
-    ))
-
-    paint.colorFilter = ColorMatrixColorFilter(colorMatrix)
-    canvas.drawBitmap(bitmap, 0f, 0f, paint)
-
-    return output
 }

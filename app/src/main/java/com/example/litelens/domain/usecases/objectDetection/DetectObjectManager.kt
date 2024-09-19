@@ -1,11 +1,8 @@
 package com.example.litelens.domain.usecases.objectDetection
 
 import android.graphics.Bitmap
-import android.media.Image
-import androidx.camera.core.ImageProxy
 import com.example.litelens.domain.model.Detection
 import com.example.litelens.domain.repository.objectDetection.ObjectDetectionManager
-import com.google.mlkit.vision.objects.DetectedObject
 
 class DetectObjectManager(
     private val objectDetectionManager: ObjectDetectionManager
